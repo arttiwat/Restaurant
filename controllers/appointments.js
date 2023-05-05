@@ -173,7 +173,7 @@ exports.deleteAppointment = async(req,res,next)=>{
             });
         }
 
-        await appointment.remove();
+        await Appointment.findByIdAndDelete(req.params.id);
         
         res.status(200).json({
             success:true,

@@ -24,9 +24,14 @@ const RestaurantSchema = new mongoose.Schema({
         required: [true,'Please add a PostalCode']
     },
     tel: {
-        type: String
+        type: String,
+        uniqe: true
     },
     region:{
+        type: String,
+        required: [true,'Please add a Region']
+    },
+    Time:{
         type: String,
         required: [true,'Please add a Region']
     }

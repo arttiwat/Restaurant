@@ -13,7 +13,9 @@ const sendTokenResponse = (user,statusCode,res)=>{
     if (process.env.NODE_ENV==='production'){
         options.secure = true;
     }
-    res.status(statusCode).cookie('token',token,options).json({success:true,token,_id:user._id,token})
+    // res.status(statusCode).cookie('token',token,options).json({success:true,token,_id:user._id,token})
+    // res.status(statusCode).cookie('token',token,options).json({success:true,_id:user._id,name:user.name,email:user.email,role:user.role,token})
+    res.status(statusCode).json({success:true,data:user,token})
 }
 
 exports.getAllUsers= async(req,res,next)=>{
@@ -137,33 +139,41 @@ exports.register = async(req,res,next)=>{
 exports.login = async (req,res,next)=>{
     const {email,password} = req.body;
 
-    //Validate Email & Password
-    if(!email || !password){
-        return res.status(400).json({success:false,
-        msg:'Please Provide an Email & Password'});
+    try{
+
+        //Validate Email & Password
+        if(!email || !password){
+            return res.status(400).json({success:false,
+            msg:'Please Provide an Email & Password'});
+        }
+
+        //Check for User
+        const user = await 
+        User.findOne({email}).select('+password');
+        if(!user){
+            return res.status(400).json({success:false,
+            msg:'Invalid Credentials'});
+        }
+
+        //Check if Password Matches
+        const isMatch = await user.matchPassword(password);
+
+        if(!isMatch){
+            return res.status(401).json({success:false,
+            msg:'Invalid Credentials'})
+
+        }
+
+        //Create Token
+        // const token = user.getSignedJwtToken();
+        // res.status(200).json({success:true,token});
+        sendTokenResponse(user,200,res);
     }
-
-    //Check for User
-    const user = await 
-    User.findOne({email}).select('+password');
-    if(!user){
-        return res.status(400).json({success:false,
-        msg:'Invalid Credentials'});
-    }
-
-    //Check if Password Matches
-    const isMatch = await user.matchPassword(password);
-
-    if(!isMatch){
-        return res.status(401).json({success:false,
-        msg:'Invalid Credentials'})
+    catch(error){
+        res.status(400).json({success:false,msg:"Can't convert email or password to string"});
+        console.log(err);
 
     }
-
-    //Create Token
-    // const token = user.getSignedJwtToken();
-    // res.status(200).json({success:true,token});
-    sendTokenResponse(user,200,res);
 };
 
 //@desc Get Current Logged in User
@@ -185,9 +195,11 @@ exports.update = async (req,res,next) => {
             runValidators:true
         });
 
-        if(!user){
-            return res.status(400).json({success:false});
-            console.log("!user");
+        if(!user || user.toString() !== req.user.id && req.user.role !== 'admin'){
+            return res.status(401).json({
+                success:false,
+                message:`User ${req.user.id} is not authorized to update this profile`
+            });
         }
         
         res.status(200).json({success:true,data:user});
@@ -204,10 +216,23 @@ exports.deleteUser = async (req,res,next) => {
         if(!user){
             return res.status(400).json({success:false});
         }
-        user.remove();
+        await User.findByIdAndDelete(req.params.id);
         res.status(200).json({success:true, data:{}});
     }catch(err){
         res.status(400).json({success:false});
         console.log(err);
     }
+};
+
+exports.logout = async(req,res,next) => {
+    res.cookie('token', 'none',{
+        expires: new Date(Date.now() + 10*1000),
+        httpOnly: true
+    });
+    console.log("LogOut");
+
+    res.status(200).json({
+        success:true,
+        data:{}
+    });
 };
